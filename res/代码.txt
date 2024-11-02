@@ -1,0 +1,99 @@
+from urllib.parse import urlunsplit
+from bs4 import BeautifulSoup
+import requests
+import re
+import xlwt
+import time
+import schedule
+
+#设置运行时间
+# def runtime():
+#     schedule.every(4).hours.do(runtime)
+#第一个网址
+url = 'https://www.bkjx.sdu.edu.cn/index/gztz.htm'
+headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0'}
+response = requests.get(url,headers=headers)
+text = response.text.encode("ISO-8859-1").decode("utf-8")
+obj = re.compile(r'href=.*?news.NewsContentUrl(?P<lianj>.*?)"\starget="_blank" title="(?P<da>.*?)".*?>.20(?P<ti>.*?)]',re.S)
+result = obj.findall(text)
+
+
+#慢一点
+time.sleep(1)
+
+#另一个网址
+url1 = 'https://www.view.sdu.edu.cn/sdyw.htm'
+response1 = requests.get(url1,headers=headers)
+text1 = response1.text.encode("ISO-8859-1").decode("utf-8")
+obj1 = re.compile(r'href=.*?info(?P<lian>.*?).\starget="_blank" title="(?P<da>.*?)".*?>20(?P<ti>.*?)<',re.S)
+result1 = obj1.findall(text1)
+
+#慢一点
+time.sleep(1)
+
+#第三个网址
+url2 = 'https://www.cs.sdu.edu.cn/xyxw.htm'
+#headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0'}
+response2 = requests.get(url2,headers=headers)
+text2 = response2.text.encode("ISO-8859-1").decode("utf-8")
+obj2 = re.compile(r'<span class="fr">20(.*?)<.*?info(.*?)"\starget="_blank" title="(.*?)"',re.S)
+result2 = obj2.findall(text2)
+
+#创建表格
+workbook = xlwt.Workbook(encoding='utf-8')
+worksheet = workbook.add_sheet("news")
+worksheet.write(0,0,'链接')
+worksheet.write(0,1,'新闻')
+worksheet.write(0,2,'时间')
+worksheet.write(0,3,'内容')
+worksheet.write(1,0,'本科生院通知')
+#第一个网址内容导入
+n = 2
+for i in result:
+    m = 0
+    for j in i:
+        if m == 0:
+            worksheet.write(n,m,'https://www.bkjx.sdu.edu.cn/content.jsp?urltype=news.NewsContentUrl'+j.replace(u'\u200b',u''))
+            urln = 'https://www.bkjx.sdu.edu.cn/content.jsp?urltype=news.NewsContentUrl' + j
+            responsen = requests.get(urln, headers=headers)
+            soup = BeautifulSoup(responsen.content, "lxml")
+            con = soup.find_all('p')
+            a = ''
+            for i in con:
+                a = a+str(i.get_text())
+            if a != '':
+                worksheet.write(n, 3, a)
+            else:
+                worksheet.write(n, 3, '非关键通知，可移步新闻网了解')
+        else:
+            worksheet.write(n,m,j.replace(u'\u200b',u''))
+        m += 1
+    n += 1
+#第二个网址内容导入
+n = n+2
+worksheet.write(n-1,0,'山大要闻')
+for i in result1:
+    m = 0
+    for j in i:
+        if m == 0:
+            worksheet.write(n,m,'www.view.sdu.edu.cn'+j.replace(u'\u200b',u''))
+        else:
+            worksheet.write(n,m,j.replace(u'\u200b',u''))
+        m += 1
+    n += 1
+#第三个网址内容导入
+n = n+2
+worksheet.write(n-1,0,'计科学院新闻')
+for i in result2:
+    m = 0
+    for j in i:
+        if m == 1:
+            worksheet.write(n,2-m,"info"+j.replace(u'\u200b',u''))
+        else:
+            worksheet.write(n,2-m,j.replace(u'\u200b',u''))
+        m += 1
+    n += 1
+
+
+#保存为xlsx格式
+workbook.save('Information&News.xlsx')
